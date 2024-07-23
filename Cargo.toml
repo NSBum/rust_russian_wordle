@@ -8,6 +8,7 @@ clap = "4.5.9"
 rusqlite = "0.31.0"
 prettytable-rs = "0.10"
 unicode-segmentation = "1.8.0"
+thiserror = "1.0.63"
 
 [[bin]]
 name = "rust_russian_wordle"

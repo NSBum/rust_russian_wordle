@@ -1,5 +1,14 @@
 use rusqlite::{Connection, Result};
 use std::collections::{HashMap, HashSet};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum WordleQueryError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] rusqlite::Error),
+    #[error("Query error: {0}")]
+    QueryError(String),
+}
 
 pub struct Wordle {
     pub lemma: String,
@@ -76,19 +85,31 @@ impl Wordle {
     }
 }
 
+#[derive(Debug)]
 pub struct WordleQuery {
     pub pattern: String,
     pub rejects: Vec<char>,
 }
 
 impl WordleQuery {
-    pub fn new(pattern: &str, rejects: &str) -> Self {
-        let rejects = process_rejects(rejects);                                                 // Step 3: Collect the results
+    pub fn new(pattern: &str, rejects: &str) -> Result<Self, WordleQueryError> {
+        let pattern_chars: Vec<char> = pattern.chars().collect();
+        let valid_pattern = pattern_chars.len() == 5 && pattern_chars.iter().all(|&c| {
+            c == '*' || c.is_cyrillic()
+        });
 
-        WordleQuery {
+        if !valid_pattern {
+            return Err(WordleQueryError::QueryError(String::from(
+                "Pattern must contain exactly 5 Cyrillic (or *) characters.",
+            )));
+        }
+
+        let rejects = process_rejects(rejects);
+
+        Ok(WordleQuery {
             pattern: pattern.to_string(),
             rejects,
-        }
+        })
     }
 
     pub fn build_query(&self) -> String {
@@ -159,4 +180,14 @@ pub fn process_rejects(rejects: &str) -> Vec<char> {
            // Handle multi-character expansion
 
         .collect()                        // Step 3: Collect the results
+}
+
+trait IsCyrillic {
+    fn is_cyrillic(self) -> bool;
+}
+
+impl IsCyrillic for char {
+    fn is_cyrillic(self) -> bool {
+        ('\u{0400}'..='\u{04FF}').contains(&self) || self == 'ё'
+    }
 }

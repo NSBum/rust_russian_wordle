@@ -1,9 +1,10 @@
 use rusqlite::{Connection, Result};
-use rust_russian_wordle::WordleQuery;
-use rust_russian_wordle::process_rejects;
+use rust_russian_wordle::{WordleQuery, process_rejects, WordleQueryError};
+
+type TestResult = Result<(), WordleQueryError>;
 
 #[test]
-fn test_query_excludes_uppercase_words() -> Result<()> {
+fn test_query_excludes_uppercase_words() -> TestResult {
     // Create an in-memory SQLite database
     let conn = Connection::open_in_memory()?;
 
@@ -21,7 +22,7 @@ fn test_query_excludes_uppercase_words() -> Result<()> {
     }
 
     // Build the query using WordleQuery
-    let wordle_query = WordleQuery::new("*****", "");
+    let wordle_query = WordleQuery::new("*****", "")?;
     let query = wordle_query.build_query();
     //println!("Generated Query: {}", query);
 
@@ -44,7 +45,7 @@ fn test_query_excludes_uppercase_words() -> Result<()> {
 }
 
 #[test]
-fn test_query_returns_only_5_letter_words() -> Result<()> {
+fn test_query_returns_only_5_letter_words() -> TestResult {
     // Create an in-memory SQLite database
     let conn = Connection::open_in_memory()?;
 
@@ -62,7 +63,7 @@ fn test_query_returns_only_5_letter_words() -> Result<()> {
     }
 
     // Build the query using WordleQuery
-    let wordle_query = WordleQuery::new("*****", "");
+    let wordle_query = WordleQuery::new("*****", "")?;
     let query = wordle_query.build_query();
     //println!("Generated Query: {}", query);
 
@@ -86,7 +87,7 @@ fn test_query_returns_only_5_letter_words() -> Result<()> {
 }
 
 #[test]
-fn test_query_excludes_words_with_rejected_letters() -> Result<()> {
+fn test_query_excludes_words_with_rejected_letters() -> TestResult {
     // Create an in-memory SQLite database
     let conn = Connection::open_in_memory()?;
 
@@ -104,7 +105,7 @@ fn test_query_excludes_words_with_rejected_letters() -> Result<()> {
     }
 
     // Build the query using WordleQuery with rejected letters
-    let wordle_query = WordleQuery::new("*****", "о,е");
+    let wordle_query = WordleQuery::new("*****", "о,е")?;
     let query = wordle_query.build_query();
     //println!("Generated Query: {}", query);
 
@@ -127,7 +128,7 @@ fn test_query_excludes_words_with_rejected_letters() -> Result<()> {
 }
 
 #[test]
-fn test_query_excludes_words_with_yellow_letters_in_correct_position() -> Result<()> {
+fn test_query_excludes_words_with_yellow_letters_in_correct_position() -> TestResult {
     // Create an in-memory SQLite database
     let conn = Connection::open_in_memory()?;
 
@@ -145,7 +146,7 @@ fn test_query_excludes_words_with_yellow_letters_in_correct_position() -> Result
     }
 
     // Build the query using WordleQuery with a yellow letter 'н' not in the 3rd position
-    let wordle_query = WordleQuery::new("**н**", "");
+    let wordle_query = WordleQuery::new("**н**", "")?;
     let query = wordle_query.build_query();
     //println!("Generated Query: {}", query);
 
@@ -168,7 +169,7 @@ fn test_query_excludes_words_with_yellow_letters_in_correct_position() -> Result
 }
 
 #[test]
-fn test_query_with_limit() -> Result<()> {
+fn test_query_with_limit() -> TestResult {
     // Create an in-memory SQLite database
     let conn = Connection::open_in_memory()?;
 
@@ -193,9 +194,9 @@ fn test_query_with_limit() -> Result<()> {
     }
 
     // Build the query using WordleQuery with a limit of 10
-    let wordle_query = WordleQuery::new("*****", "");
+    let wordle_query = WordleQuery::new("*****", "")?;
     let query = format!("{} LIMIT 10", wordle_query.build_query());
-    println!("Generated Query: {}", query);
+    //println!("Generated Query: {}", query);
 
     // Execute the query
     let mut stmt = conn.prepare(&query)?;
@@ -206,7 +207,7 @@ fn test_query_with_limit() -> Result<()> {
 
     // Collect the results
     let results: Vec<String> = word_iter.filter_map(|word_result| word_result.ok()).collect();
-    println!("Query Results: {:?}", results);
+    //println!("Query Results: {:?}", results);
 
     // Assert that the results contain only 10 items
     assert_eq!(results.len(), 10, "Expected 10 items, but got {}", results.len());
@@ -222,3 +223,42 @@ fn test_process_rejects() {
     let expected: Vec<char> = vec!['е','е','д','я','о'];
     assert_eq!(process_rejects(input), expected);
 }
+
+#[test]
+fn test_wordle_query_invalid_pattern_too_short() -> Result<(), WordleQueryError> {
+    let pattern = "****"; // 4 characters
+    let rejects = "EoABCё";
+    let result = WordleQuery::new(pattern, rejects);
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        WordleQueryError::QueryError(msg) => assert_eq!(msg, "Pattern must contain exactly 5 Cyrillic (or *) characters."),
+        _ => panic!("Unexpected error type"),
+    }
+    Ok(())
+}
+#[test]
+fn test_wordle_query_invalid_pattern_way_too_long() -> Result<(), WordleQueryError> {
+    let pattern = "яшертыуидйд";
+    let rejects = "к";
+    let result = WordleQuery::new(pattern,rejects);
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        WordleQueryError::QueryError(msg) => assert_eq!(msg, "Pattern must contain exactly 5 Cyrillic (or *) characters."),
+        _ => panic!("Unexpected error type"),
+    }
+    Ok(())
+}
+
+#[test]
+fn test_wordle_query_invalid_pattern_just_too_long() -> Result<(), WordleQueryError> {
+    let pattern = "**яшей";
+    let rejects = "к";
+    let result = WordleQuery::new(pattern,rejects);
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        WordleQueryError::QueryError(msg) => assert_eq!(msg, "Pattern must contain exactly 5 Cyrillic (or *) characters."),
+        _ => panic!("Unexpected error type"),
+    }
+    Ok(())
+}
+

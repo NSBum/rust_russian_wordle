@@ -63,17 +63,24 @@ fn main() -> rusqlite::Result<()> {
     let mut results = None;
 
     for pattern in patterns {
-        let wordle_query = WordleQuery::new(&pattern, rejects);
-        let query = wordle_query.build_query();
-        let words = load_words_from_query(&query, &conn)?;
+        match WordleQuery::new(&pattern, rejects) {
+            Ok(wordle_query) => {
+                let query = wordle_query.build_query();
+                let words = load_words_from_query(&query, &conn)?;
 
-        results = match results {
-            None => Some(words),
-            Some(existing_results) => Some(existing_results.intersection(&words).cloned().collect()),
-        };
+                results = match results {
+                    None => Some(words),
+                    Some(existing_results) => Some(existing_results.intersection(&words).cloned().collect()),
+                };
 
-        if results.as_ref().unwrap().is_empty() {
-            break;
+                if results.as_ref().unwrap().is_empty() {
+                    break;
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
         }
     }
 
