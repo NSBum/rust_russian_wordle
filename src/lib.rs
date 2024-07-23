@@ -95,7 +95,7 @@ impl WordleQuery {
     pub fn new(pattern: &str, rejects: &str) -> Result<Self, WordleQueryError> {
         let pattern_chars: Vec<char> = pattern.chars().collect();
         let valid_pattern = pattern_chars.len() == 5 && pattern_chars.iter().all(|&c| {
-            c == '*' || c.is_cyrillic()
+            c == '*' || c.is_cyrillic_char()
         });
 
         if !valid_pattern {
@@ -182,12 +182,12 @@ pub fn process_rejects(rejects: &str) -> Vec<char> {
         .collect()                        // Step 3: Collect the results
 }
 
-trait IsCyrillic {
-    fn is_cyrillic(self) -> bool;
+trait CharExt {
+    fn is_cyrillic_char(self) -> bool;
 }
 
-impl IsCyrillic for char {
-    fn is_cyrillic(self) -> bool {
+impl CharExt for char {
+    fn is_cyrillic_char(self) -> bool {
         ('\u{0400}'..='\u{04FF}').contains(&self) || self == 'ё'
     }
 }
