@@ -2,15 +2,14 @@ use clap::{Arg, Command};
 use rusqlite::Connection;
 use std::time::Instant;
 use prettytable::{Table, row};
-use unicode_segmentation::UnicodeSegmentation;
-use rust_russian_wordle::{Wordle, WordleQuery, load_words_from_query};
+use rust_russian_wordle::{Wordle, WordleQuery, load_words_from_query, is_valid_pattern, parse_pattern};
 
 fn main() -> rusqlite::Result<()> {
     let start = Instant::now();
 
     let matches = Command::new("ruwordle")
         .version("1.0")
-        .author("Your Name <your.email@example.com>")
+        .author("Alan Duncan <duncan.alan@me.com>")
         .about("This tool is meant to offer suggested words for the Russian version of Wordle.")
         .arg(
             Arg::new("pattern")
@@ -44,9 +43,8 @@ fn main() -> rusqlite::Result<()> {
     let mut pattern_lengths_valid = true;
 
     for pattern in &patterns {
-        let pattern_length = UnicodeSegmentation::graphemes(pattern.as_str(), true).count();
-        if pattern_length != 5 {
-            eprintln!("Error: Each pattern must be exactly 5 characters long. Provided pattern length: {} - {}", pattern_length, pattern);
+        if !is_valid_pattern(pattern) {
+            eprintln!("Error: Incorrect pattern format");
             pattern_lengths_valid = false;
         }
     }
@@ -55,15 +53,27 @@ fn main() -> rusqlite::Result<()> {
         std::process::exit(1);
     }
 
+    let mut all_rejects: Vec<char> = vec![];
+    let mut validated_patterns = vec![];
+    for pattern in &patterns {
+        let (modified_pattern, extracted_rejects) = parse_pattern(pattern);
+        all_rejects.extend(extracted_rejects); // Collect all extracted rejects
+        validated_patterns.push(modified_pattern);
+    }
     let rejects = matches.get_one::<String>("rejects").map(String::as_str).unwrap_or("");
+    // Add additional rejects provided via --rejects
+    all_rejects.extend(rejects.chars());
+
+    let rejects_string: String = all_rejects.iter().collect();
+
     let limit = matches.get_one::<String>("limit").unwrap_or(&"0".to_string()).parse::<usize>().unwrap_or(0);
 
     let conn = Connection::open("/Users/alan/Documents/dev/databases/stalin.db")?;
 
     let mut results = None;
 
-    for pattern in patterns {
-        match WordleQuery::new(&pattern, rejects) {
+    for pattern in validated_patterns {
+        match WordleQuery::new(&pattern, &rejects_string) {
             Ok(wordle_query) => {
                 let query = wordle_query.build_query();
                 let words = load_words_from_query(&query, &conn)?;
