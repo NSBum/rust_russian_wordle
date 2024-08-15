@@ -33,3 +33,17 @@ fn test_convert_latin_to_cyrillic() {
     assert_eq!(convert_latin_to_cyrillic('z'), 'z');
     assert_eq!(convert_latin_to_cyrillic('я'), 'я'); // Cyrillic character
 }
+
+#[cfg(test)]
+mod tests {
+    use rust_russian_wordle::WordleQuery;
+
+    #[test]
+    fn test_extract_rejects() {
+        let mut input = String::from("**_н**");
+        let collected_letters = WordleQuery::extract_rejects(&mut input).unwrap();
+
+        assert_eq!(input, "****"); // Check if the string was modified as expected
+        assert_eq!(collected_letters, vec!['н']); // Check if the Cyrillic letter was collected
+    }
+}
