@@ -12,6 +12,7 @@ thiserror = "1.0.63"
 tokio = "1.39.1"
 serde_json = "1.0.120"
 regex = "1.7.0"
+dirs = "5.0.1"
 
 [[bin]]
 name = "rust_russian_wordle"
